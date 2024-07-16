@@ -21,10 +21,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'reviews.apps.ReviewsConfig',
     'rest_framework',
     'rest_framework.authtoken',
     'api',
-    'product',
 ]
 
 MIDDLEWARE = [
@@ -105,3 +105,5 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = ((BASE_DIR / 'static/'),)
+
+AUTH_USER_MODEL = 'reviews.CustomUser'
