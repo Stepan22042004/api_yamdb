@@ -115,6 +115,11 @@ class TitleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Добавьте жанр.")
         return value
 
+    def validate_name(self, value):
+        if len(value) > 256:
+            raise serializers.ValidationError('Название произведения не может быть длиннее 256 символов.')
+        return value
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.StringRelatedField(read_only=True)
