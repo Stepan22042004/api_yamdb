@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.views import APIView
 from rest_framework import filters
 from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
+from rest_framework.exceptions import NotFound
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
@@ -19,7 +20,7 @@ from .serializers import (CategorySerializer, CommentSerializer,
                           CustomUserSerializer, GenreSerializer,
                           ReviewSerializer, TitleSerializer,
                           UserRegisterSerializer, TokenObtainSerializer,
-                          AdminRegisterSerializer)
+                          AdminRegisterSerializer, TitleCreateUpdateSerializer)
 
 
 class UserRegisterView(APIView):
@@ -136,54 +137,128 @@ class CustomUserViewSet(viewsets.ModelViewSet):
     serializer_class = CustomUserSerializer
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(mixins.ListModelMixin,
+                      mixins.CreateModelMixin,
+                      mixins.DestroyModelMixin,
+                      viewsets.GenericViewSet,
+                      ):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ('name',)
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action in ['create', 'destroy', 'partial_update', 'update']:
             self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
+        else:
+            self.permission_classes = [IsAuthenticatedOrReadOnly,]
         return super().get_permissions()
+
+    def patch(self, request, *args, **kwargs):
+        if request.user.role == 'user':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def partial_update(self, request, *args, **kwargs):
+        if request.user.role == 'user':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def destroy(self, request, pk=None):
+        try:
+            instance = Category.objects.get(slug=pk)
+        except Category.DoesNotExist:
+            raise NotFound('Категория не найдена по данному slug')
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     pagination_class = LimitOffsetPagination
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ('name',)
 
+    def partial_update(self, request, *args, **kwargs):
+        if request.user.role == 'user' or request.user.role == 'moderator':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
-            self.permission_classes = [IsAdminUser]
+            self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
         return super().get_permissions()
+
+    def destroy(self, request, pk=None):
+        try:
+            instance = Genre.objects.get(slug=pk)
+        except Genre.DoesNotExist:
+            raise NotFound('Категория не найдена по данному slug')
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    http_method_names = ['get', 'post', 'patch', 'delete',
+                         'head', 'options', 'trace']
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            self.permission_classes = [IsAdminUser]
+        if self.action in ['create', 'destroy']:
+            self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
         return super().get_permissions()
 
+    def partial_update(self, request, *args, **kwargs):
+        if request.user.role == 'user' or request.user.role == 'moderator':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-class ReviewViewSet(viewsets.ModelViewSet):
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return TitleCreateUpdateSerializer
+        return TitleSerializer
+
+
+class ReviewViewSet(mixins.ListModelMixin,
+                    mixins.CreateModelMixin,
+                    mixins.DestroyModelMixin,
+                    viewsets.GenericViewSet,
+                    mixins.RetrieveModelMixin,
+                    mixins.UpdateModelMixin,):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [
         IsAuthenticatedOrReadOnly,
     ]
+    http_method_names = ['get', 'post', 'patch', 'delete',
+                         'head', 'options', 'trace']
 
     def perform_create(self, serializer):
         title_id = self.kwargs.get('title_id')
         title = Title.objects.get(id=title_id)
         serializer.save(author=self.request.user, title=title)
+
+    def partial_update(self, request, *args, **kwargs):
+        review = self.get_object()
+        if request.user.role == 'user' and review.author != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        review = self.get_object()
+        if request.user.role == 'user' and review.author != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return super().destroy(request, *args, **kwargs)
+
+    
+
+
 
 
 class CommentViewSet(viewsets.ModelViewSet):
