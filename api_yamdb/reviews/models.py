@@ -2,10 +2,10 @@ import random
 import string
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator, EmailValidator
 from django.contrib.auth.models import PermissionsMixin
+from django.db import models
 
 
 def generate_confirmation_code():
@@ -129,6 +129,20 @@ class Title(models.Model):
         blank=False,
         related_name='titles'
     )
+
+    rating = models.FloatField(default=0.0)
+
+    def update_rating(self):
+        new_rating = self.calculate_rating()
+        if new_rating != self.rating:
+            self.rating = new_rating
+            super().save(update_fields=['rating'])
+
+    def calculate_rating(self):
+        reviews = self.reviews.all()
+        if reviews.exists():
+            return reviews.aggregate(models.Avg('score'))['score__avg']
+        return 0.0
 
     def __str__(self):
         return self.name

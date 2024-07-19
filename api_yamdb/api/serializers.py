@@ -88,7 +88,7 @@ class TitleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description', 'category', 'genre']
+        fields = ['id', 'name', 'year', 'description', 'category', 'genre', 'rating']
 
     def validate_year(self, value):
         current_year = timezone.now().year
@@ -123,7 +123,7 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description', 'category', 'genre']
+        fields = ['id', 'name', 'year', 'description', 'category', 'genre', 'rating']
 
     def validate_year(self, value):
         current_year = timezone.now().year
@@ -156,6 +156,11 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ['id', 'title', 'text', 'author', 'score', 'pub_date']
+
+    def validate_score(self, value):
+        if value < 1 or value > 10:
+            raise serializers.ValidationError("Оценка должна быть от 1 до 10.")
+        return value
 
 
 class CommentSerializer(serializers.ModelSerializer):
