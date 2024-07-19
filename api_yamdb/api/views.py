@@ -17,7 +17,7 @@ from rest_framework.exceptions import NotFound
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from .filters import TitleFilter
-from .permissions import IsAdminUser, IsAuthorOrReadOnly
+from .permissions import IsAdminUser
 from .serializers import (CategorySerializer, CommentSerializer,
                           CustomUserSerializer, GenreSerializer,
                           ReviewSerializer, TitleSerializer,
@@ -200,6 +200,9 @@ class GenreViewSet(viewsets.ModelViewSet):
             raise NotFound('Категория не найдена по данному slug')
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class TitleViewSet(viewsets.ModelViewSet):
