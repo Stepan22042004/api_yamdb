@@ -4,7 +4,7 @@ from rest_framework import filters
 from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
-from rest_framework.exceptions import MethodNotAllowed
+from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework import generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
@@ -204,7 +204,7 @@ class GenreViewSet(viewsets.ModelViewSet):
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
-    
+
     permission_classes = [IsAuthenticatedOrReadOnly]
     http_method_names = ['get', 'post', 'patch', 'delete',
                          'head', 'options', 'trace']
@@ -257,8 +257,20 @@ class ReviewViewSet(mixins.ListModelMixin,
 
     def perform_create(self, serializer):
         title_id = self.kwargs.get('title_id')
-        title = Title.objects.get(id=title_id)
-        serializer.save(author=self.request.user, title=title)
+        title = title = get_object_or_404(Title, id=title_id)
+        author = self.request.user
+
+        if Review.objects.filter(title=title, author=author).exists():
+            raise ValidationError(
+                'Вы уже оставили отзыв для этого произведения.'
+            )
+
+        serializer.save(author=author, title=title)
+        title.update_rating()
+
+    def perform_update(self, serializer):
+        review = serializer.save()
+        review.title.update_rating()
 
     def partial_update(self, request, *args, **kwargs):
         review = self.get_object()
@@ -275,10 +287,6 @@ class ReviewViewSet(mixins.ListModelMixin,
         return super().destroy(request, *args, **kwargs)
 
 
-
-
-
-
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -289,8 +297,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         review_id = self.kwargs.get('review_id')
-        queryset = get_object_or_404(Review, id=review_id).comments.all()
-        return queryset
+        return get_object_or_404(Review, id=review_id).comments.all()
 
     def perform_create(self, serializer):
         review_id = self.kwargs.get('review_id')
