@@ -16,12 +16,14 @@ from rest_framework.exceptions import NotFound
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
-from .permissions import IsAdminUser
-from .serializers import (CategorySerializer, CommentSerializer,
-                          CustomUserSerializer, GenreSerializer,
-                          ReviewSerializer, TitleSerializer,
-                          UserRegisterSerializer, TokenObtainSerializer,
-                          AdminRegisterSerializer, TitleCreateUpdateSerializer)
+from api.filters import TitleFilter
+from api.permissions import IsAdminUser
+from api.serializers import (CategorySerializer, CommentSerializer,
+                             CustomUserSerializer, GenreSerializer,
+                             ReviewSerializer, TitleSerializer,
+                             UserRegisterSerializer, TokenObtainSerializer,
+                             AdminRegisterSerializer,
+                             TitleCreateUpdateSerializer)
 
 
 class UserRegisterView(APIView):
@@ -200,13 +202,16 @@ class GenreViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    def retrieve(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
-    filterset_fields = ('genre__slug',)
+    filterset_class = TitleFilter
 
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
