@@ -16,13 +16,14 @@ from rest_framework.exceptions import NotFound
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
-from .filters import TitleFilter
-from .permissions import IsAdminUser
-from .serializers import (CategorySerializer, CommentSerializer,
-                          CustomUserSerializer, GenreSerializer,
-                          ReviewSerializer, TitleSerializer,
-                          UserRegisterSerializer, TokenObtainSerializer,
-                          AdminRegisterSerializer, TitleCreateUpdateSerializer)
+from api.filters import TitleFilter
+from api.permissions import IsAdminUser
+from api.serializers import (CategorySerializer, CommentSerializer,
+                             CustomUserSerializer, GenreSerializer,
+                             ReviewSerializer, TitleSerializer,
+                             UserRegisterSerializer, TokenObtainSerializer,
+                             AdminRegisterSerializer,
+                             TitleCreateUpdateSerializer)
 
 
 class UserRegisterView(APIView):
