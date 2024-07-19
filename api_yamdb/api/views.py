@@ -4,6 +4,7 @@ from rest_framework import filters
 from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
+from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework import generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
@@ -15,7 +16,7 @@ from rest_framework.exceptions import NotFound
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
-from .permissions import IsAdminUser
+from .permissions import IsAdminUser, IsAuthorOrReadOnly
 from .serializers import (CategorySerializer, CommentSerializer,
                           CustomUserSerializer, GenreSerializer,
                           ReviewSerializer, TitleSerializer,
@@ -206,16 +207,33 @@ class TitleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     http_method_names = ['get', 'post', 'patch', 'delete',
                          'head', 'options', 'trace']
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ('genre',)
 
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
             self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
         return super().get_permissions()
 
+    def update(self, request, *args, **kwargs):
+        # Отключить PUT-запросы
+        if request.method == 'PUT':
+            return Response(
+                {"detail": "Method 'PUT' not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        # Оставить PATCH-запросы
+        return super().update(request, *args, **kwargs)
+
     def partial_update(self, request, *args, **kwargs):
         if request.user.role == 'user' or request.user.role == 'moderator':
             return Response(status=status.HTTP_403_FORBIDDEN)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -256,7 +274,7 @@ class ReviewViewSet(mixins.ListModelMixin,
 
         return super().destroy(request, *args, **kwargs)
 
-    
+
 
 
 
@@ -265,10 +283,32 @@ class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [
-        IsAuthenticatedOrReadOnly,
+        IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly
     ]
+
+    def get_queryset(self):
+        review_id = self.kwargs.get('review_id')
+        queryset = get_object_or_404(Review, id=review_id).comments.all()
+        return queryset
 
     def perform_create(self, serializer):
         review_id = self.kwargs.get('review_id')
-        review = Review.objects.get(id=review_id)
+        review = get_object_or_404(Review, id=review_id)
         serializer.save(author=self.request.user, review=review)
+
+    def update(self, request, *args, **kwargs):
+        # Отключить PUT-запросы
+        return Response(
+            {"detail": "Method 'PUT' not allowed."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        # PATCH-запросы
+        comment = self.get_object()
+        if comment.author != request.user:
+            return Response(
+                {"detail": "You do not have permission to modify this comment."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().partial_update(request, *args, **kwargs)
