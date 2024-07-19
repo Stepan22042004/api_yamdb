@@ -4,7 +4,7 @@ from rest_framework import filters
 from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
                                         IsAuthenticated)
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
-from rest_framework.exceptions import MethodNotAllowed, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework import generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
@@ -54,7 +54,7 @@ class UserRegisterView(APIView):
 class AdminRegisterViewSet(viewsets.ViewSet):
     """Отвечает за возможность админа делать
     различные запросы на адрес /users"""
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = (IsAuthenticated, IsAdminUser)
     pagination_class = LimitOffsetPagination
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
@@ -179,8 +179,8 @@ class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     pagination_class = LimitOffsetPagination
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [filters.SearchFilter, DjangoFilterBackend]
+    permission_classes = (IsAuthenticatedOrReadOnly,)
+    filter_backends = (filters.SearchFilter, DjangoFilterBackend,)
     search_fields = ('name',)
 
     def partial_update(self, request, *args, **kwargs):
@@ -205,10 +205,7 @@ class GenreViewSet(viewsets.ModelViewSet):
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
-
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    http_method_names = ['get', 'post', 'patch', 'delete',
-                         'head', 'options', 'trace']
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
 
@@ -231,7 +228,11 @@ class TitleViewSet(viewsets.ModelViewSet):
         if request.user.role == 'user' or request.user.role == 'moderator':
             return Response(status=status.HTTP_403_FORBIDDEN)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -251,10 +252,7 @@ class ReviewViewSet(mixins.ListModelMixin,
                     mixins.UpdateModelMixin,):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    permission_classes = [
-        IsAuthenticatedOrReadOnly,
-    ]
-    http_method_names = ['get', 'post', 'patch', 'delete']
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def perform_create(self, serializer):
         title_id = self.kwargs.get('title_id')
@@ -274,11 +272,27 @@ class ReviewViewSet(mixins.ListModelMixin,
         review.title.update_rating()
 
     def partial_update(self, request, *args, **kwargs):
+        if request.method == 'PUT':
+            return Response(
+                {"detail": "Method 'PUT' not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
         review = self.get_object()
         if request.user.role == 'user' and review.author != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         return super().partial_update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.method == 'PUT':
+            return Response(
+                {"detail": "Method 'PUT' not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+        review = self.get_object()
+        if request.user.role == 'user' and review.author != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         review = self.get_object()
@@ -291,10 +305,7 @@ class ReviewViewSet(mixins.ListModelMixin,
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [
-        IsAuthenticatedOrReadOnly
-    ]
-    http_method_names = ['get', 'post', 'patch', 'delete']
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get_queryset(self):
         review_id = self.kwargs.get('review_id')
@@ -306,25 +317,35 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user, review=review)
 
     def update(self, request, *args, **kwargs):
+        if request.method == 'PUT':
+            return Response(
+                {"detail": "Method 'PUT' not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
         comment = self.get_object()
         if request.user.role == 'admin' or request.user.role == 'moderator':
             return super().update(request, *args, **kwargs)
         if comment.author != request.user:
-            print('ok')
             return Response(
-                {"detail": "You do not have permission to modify this comment."},
+                {"detail": "You do not have permission"
+                 "to modify this comment."},
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
+        if request.method == 'PUT':
+            return Response(
+                {"detail": "Method 'PUT' not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
         comment = self.get_object()
         if request.user.role == 'admin' or request.user.role == 'moderator':
             return super().update(request, *args, **kwargs)
         if comment.author != request.user:
-            print('ok')
             return Response(
-                {"detail": "You do not have permission to modify this comment."},
+                {"detail": "You do not have permission"
+                 " to modify this comment."},
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().partial_update(request, *args, **kwargs)
@@ -333,5 +354,4 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment = self.get_object()
         if request.user.role == 'user' and comment.author != request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
-
         return super().destroy(request, *args, **kwargs)
