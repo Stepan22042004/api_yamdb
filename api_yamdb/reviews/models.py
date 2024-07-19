@@ -130,7 +130,7 @@ class Title(models.Model):
         related_name='titles'
     )
 
-    rating = models.FloatField(default=0.0)
+    rating = models.FloatField(null=True, blank=True)
 
     def update_rating(self):
         new_rating = self.calculate_rating()
@@ -142,7 +142,7 @@ class Title(models.Model):
         reviews = self.reviews.all()
         if reviews.exists():
             return reviews.aggregate(models.Avg('score'))['score__avg']
-        return 0.0
+        return None
 
     def __str__(self):
         return self.name

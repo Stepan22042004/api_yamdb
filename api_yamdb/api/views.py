@@ -16,6 +16,7 @@ from rest_framework.exceptions import NotFound
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
+from .filters import TitleFilter
 from .permissions import IsAdminUser, IsAuthorOrReadOnly
 from .serializers import (CategorySerializer, CommentSerializer,
                           CustomUserSerializer, GenreSerializer,
@@ -209,7 +210,7 @@ class TitleViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete',
                          'head', 'options', 'trace']
     filter_backends = (DjangoFilterBackend,)
-    filterset_fields = ('genre__slug',)
+    filterset_class = TitleFilter
 
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
