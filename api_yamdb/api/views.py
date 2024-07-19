@@ -207,6 +207,8 @@ class TitleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     http_method_names = ['get', 'post', 'patch', 'delete',
                          'head', 'options', 'trace']
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ('genre',)
 
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
@@ -284,9 +286,14 @@ class CommentViewSet(viewsets.ModelViewSet):
         IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly
     ]
 
+    def get_queryset(self):
+        review_id = self.kwargs.get('review_id')
+        queryset = get_object_or_404(Review, id=review_id).comments.all()
+        return queryset
+
     def perform_create(self, serializer):
         review_id = self.kwargs.get('review_id')
-        review = Review.objects.get(id=review_id)
+        review = get_object_or_404(Review, id=review_id)
         serializer.save(author=self.request.user, review=review)
 
     def update(self, request, *args, **kwargs):
