@@ -88,7 +88,8 @@ class TitleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description', 'category', 'genre', 'rating']
+        fields = ['id', 'name', 'year', 'description',
+                  'category', 'genre', 'rating']
 
     def validate_year(self, value):
         current_year = timezone.now().year
@@ -123,7 +124,8 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description', 'category', 'genre', 'rating']
+        fields = ['id', 'name', 'year', 'description',
+                  'category', 'genre', 'rating']
 
     def validate_year(self, value):
         current_year = timezone.now().year
@@ -145,7 +147,10 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         if len(value) > 256:
-            raise serializers.ValidationError('Название произведения не может быть длиннее 256 символов.')
+            raise serializers.ValidationError(
+                "Название произведения не"
+                "может быть длиннее 256 символов."
+            )
         return value
 
 

@@ -154,7 +154,7 @@ class CategoryViewSet(mixins.ListModelMixin,
         if self.action in ['create', 'destroy', 'partial_update', 'update']:
             self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
         else:
-            self.permission_classes = [IsAuthenticatedOrReadOnly,]
+            self.permission_classes = (IsAuthenticatedOrReadOnly,)
         return super().get_permissions()
 
     def patch(self, request, *args, **kwargs):
