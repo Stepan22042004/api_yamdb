@@ -302,7 +302,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         if request.user.role == 'admin' or request.user.role == 'moderator':
             return super().update(request, *args, **kwargs)
         if comment.author != request.user:
-            print('ok')
             return Response(
                 {"detail": "You do not have permission to modify this comment."},
                 status=status.HTTP_403_FORBIDDEN
@@ -314,7 +313,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         if request.user.role == 'admin' or request.user.role == 'moderator':
             return super().update(request, *args, **kwargs)
         if comment.author != request.user:
-            print('ok')
             return Response(
                 {"detail": "You do not have permission to modify this comment."},
                 status=status.HTTP_403_FORBIDDEN
