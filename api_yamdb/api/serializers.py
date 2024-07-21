@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from reviews.models import Category, Genre, Title, Review, Comment, CustomUser
+from reviews.models import Category, Genre, Title, Review, Comment, User
 from django.utils import timezone
 from django.core.mail import send_mail
 
@@ -11,11 +11,11 @@ MAX_SCORE = 10
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ('email', 'username')
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(
+        user = User.objects.create_user(
             email=validated_data['email'],
             username=validated_data['username'],
         )
@@ -36,12 +36,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 class AdminRegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ['username', 'email', 'role',
                   'bio', 'first_name', 'last_name']
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
         user.save()
         return user
 
@@ -65,9 +65,9 @@ class TokenObtainSerializer(serializers.Serializer):
     confirmation_code = serializers.CharField()
 
 
-class CustomUserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ['id', 'username', 'email',
                   'first_name', 'last_name', 'bio', 'role']
         read_only_fields = ['id', 'role']
