@@ -1,9 +1,11 @@
 import csv
 import logging
+
 from django.core.management.base import BaseCommand
-from reviews.models import Category, Genre, Title, Review, Comment, User
 from django.utils.dateparse import parse_datetime
 from django.core.exceptions import ObjectDoesNotExist
+
+from reviews.models import Category, Genre, Title, Review, Comment, User
 
 STATIC_DATA_PATH = 'api_yamdb/api_yamdb/static/data/'
 
