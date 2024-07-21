@@ -5,6 +5,9 @@ from django.core.mail import send_mail
 
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
 
+MIN_SCORE = 1
+MAX_SCORE = 10
+
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -91,24 +94,6 @@ class TitleSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'year', 'description',
                   'category', 'genre', 'rating']
 
-    def validate_year(self, value):
-        current_year = timezone.now().year
-        if value > current_year:
-            raise serializers.ValidationError(
-                'Год выпуска не может быть больше текущего года.'
-            )
-        return value
-
-    def validate_category(self, value):
-        if value is None:
-            raise serializers.ValidationError("Добавьте категорию.")
-        return value
-
-    def validate_genre(self, value):
-        if not value:
-            raise serializers.ValidationError("Добавьте жанр.")
-        return value
-
 
 class TitleCreateUpdateSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(
@@ -119,7 +104,9 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
     genre = serializers.SlugRelatedField(
         slug_field='slug',
         queryset=Genre.objects.all(),
-        many=True
+        many=True,
+        required=True,
+        allow_empty=False
     )
 
     class Meta:
@@ -135,43 +122,31 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate_category(self, value):
-        if value is None:
-            raise serializers.ValidationError("Добавьте категорию.")
-        return value
 
-    def validate_genre(self, value):
-        if not value:
-            raise serializers.ValidationError("Добавьте жанр.")
-        return value
+class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
 
-    def validate_name(self, value):
-        if len(value) > 256:
+    class Meta:
+        model = Review
+        fields = ['id', 'text', 'author', 'score', 'pub_date']
+
+    def validate_score(self, value):
+        if not (MIN_SCORE <= value <= MAX_SCORE):
             raise serializers.ValidationError(
-                "Название произведения не"
-                "может быть длиннее 256 символов."
+                f'Оценка должна быть от {MIN_SCORE} до {MAX_SCORE}.'
             )
         return value
 
 
-class ReviewSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
-    title = serializers.StringRelatedField(read_only=True)
-
-    class Meta:
-        model = Review
-        fields = ['id', 'title', 'text', 'author', 'score', 'pub_date']
-
-    def validate_score(self, value):
-        if value < 1 or value > 10:
-            raise serializers.ValidationError("Оценка должна быть от 1 до 10.")
-        return value
-
-
 class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
-    review = serializers.StringRelatedField(read_only=True)
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
 
     class Meta:
         model = Comment
-        fields = ['id', 'review', 'text', 'author', 'pub_date']
+        fields = ['id', 'text', 'author', 'pub_date']

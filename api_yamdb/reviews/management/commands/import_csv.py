@@ -1,9 +1,16 @@
 import csv
+import logging
 from django.core.management.base import BaseCommand
 from reviews.models import Category, Genre, Title, Review, Comment, CustomUser
 from django.utils.dateparse import parse_datetime
 from django.core.exceptions import ObjectDoesNotExist
 
+STATIC_DATA_PATH = 'api_yamdb/api_yamdb/static/data/'
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO, format='%(asctime)s - %(name)s - %(message)s'
+)
 
 class Command(BaseCommand):
     help = 'Import data from CSV files'
@@ -18,7 +25,7 @@ class Command(BaseCommand):
 
     def import_users(self):
         with open(
-            'api_yamdb/api_yamdb/static/data/users.csv',
+            STATIC_DATA_PATH + 'users.csv',
             'r',
             encoding='utf-8'
         ) as file:
@@ -38,23 +45,20 @@ class Command(BaseCommand):
                         }
                     )
                     if created:
-                        self.stdout.write(self.style.SUCCESS(
-                            f'Successfully created user {user.username}'
-                        )
-                        )
+                        logger.info(f'Создан {user.username}')
                     else:
-                        self.stdout.write(self.style.WARNING(
-                            f'User {user.username} already exists'
-                        )
-                        )
+                        logger.warning(f'{user.username} уже существует')
                 except Exception as e:
-                    self.stdout.write(self.style.ERROR(
-                        f'Error creating user with id {row[0]}: {e}'
-                    )
+                    logger.error(
+                        f'Ошибка создания пользователя с id {row[0]}: {e}'
                     )
 
     def import_categories(self):
-        with open('static/data/category.csv', 'r', encoding='utf-8') as file:
+        with open(
+            STATIC_DATA_PATH + 'category.csv',
+            'r',
+            encoding='utf-8'
+        ) as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
@@ -65,7 +69,11 @@ class Command(BaseCommand):
                 )
 
     def import_genres(self):
-        with open('static/data/genre.csv', 'r', encoding='utf-8') as file:
+        with open(
+            STATIC_DATA_PATH + 'genre.csv',
+            'r',
+            encoding='utf-8'
+        ) as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
@@ -76,7 +84,11 @@ class Command(BaseCommand):
                 )
 
     def import_titles(self):
-        with open('static/data/titles.csv', 'r', encoding='utf-8') as file:
+        with open(
+            STATIC_DATA_PATH + 'titles.csv',
+            'r',
+            encoding='utf-8'
+        ) as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
@@ -90,7 +102,9 @@ class Command(BaseCommand):
 
     def import_genres_titles(self):
         with open(
-            'static/data/genre_title.csv', 'r', encoding='utf-8'
+            STATIC_DATA_PATH + 'genre_title.csv',
+            'r',
+            encoding='utf-8'
         ) as file:
             reader = csv.reader(file)
             next(reader)
@@ -100,25 +114,27 @@ class Command(BaseCommand):
                 title.genre.add(genre)
 
     def import_reviews(self):
-        with open('static/data/review.csv', 'r', encoding='utf-8') as file:
+        with open(
+            STATIC_DATA_PATH + 'review.csv',
+            'r',
+            encoding='utf-8'
+        ) as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
                 try:
                     title = Title.objects.get(id=row[1])
                 except ObjectDoesNotExist:
-                    print(
-                        f"Заголовок с id={row[1]} не найден. Пропуск строки."
-                    )
+                    logger.warning(f'Произведение с id {row[1]} не найдено.')
                     continue  # Пропускаем строки с отсутствующим заголовком
 
                 try:
                     author = CustomUser.objects.get(id=row[3])
                 except CustomUser.DoesNotExist:
-                    print("Автор не задан. Пропуск строки.")
-                    continue  # Пропускаем строки с отсутствующим заголовком
+                    logger.warning(f'Автор с id {row[3]} не найден.')
+                    continue  # Пропускаем строки с отсутствующим автором
 
-                review, created = Review.objects.get_or_create(
+                Review.objects.get_or_create(
                     id=row[0],
                     defaults={
                         'title': title,
@@ -130,7 +146,11 @@ class Command(BaseCommand):
                 )
 
     def import_comments(self):
-        with open('static/data/comments.csv', 'r', encoding='utf-8') as file:
+        with open(
+            STATIC_DATA_PATH + 'comments.csv',
+            'r',
+            encoding='utf-8'
+        ) as file:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
@@ -145,11 +165,6 @@ class Command(BaseCommand):
                         pub_date=parse_datetime(row[4])
                     )
                 except ObjectDoesNotExist as e:
-                    print(
-                        f"Ошибка: {e}. Комментарий с id={row[0]} не"
-                        " может быть создан"
-                        " из-за отсутствующего отзыва или автора."
+                    logger.warning(
+                        f'Ошибка: {e}. Коммент с id {row[0]} не создан.'
                     )
-                except IndexError as e:
-                    print(f"Ошибка: {e}. Возможно, "
-                          "некорректный формат строки в CSV файле.")
