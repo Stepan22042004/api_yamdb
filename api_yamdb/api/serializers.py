@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from reviews.models import Category, Genre, Title, Review, Comment, User
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.conf import settings
 
-from api_yamdb.settings import DEFAULT_FROM_EMAIL
+from reviews.models import Category, Genre, Title, Review, Comment, User
 
 MIN_SCORE = 1
 MAX_SCORE = 10
@@ -15,16 +15,16 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ('email', 'username')
 
     def create(self, validated_data):
-        user = User.objects.create_user(
+        user = User.objects.get_or_create(
             email=validated_data['email'],
             username=validated_data['username'],
         )
         subject = 'Ваш код подтверждения'
-        message = f'Ваш код подтверждения: {user.confirmation_code}'
-        from_email = DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
+        message = f'Ваш код подтверждения: {user[0].confirmation_code}'
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user[0].email]
         send_mail(subject, message, from_email, recipient_list)
-        return user
+        return user[0]
 
     def validate_username(self, value):
         if value == 'me':
@@ -39,25 +39,6 @@ class AdminRegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'email', 'role',
                   'bio', 'first_name', 'last_name']
-
-    def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        user.save()
-        return user
-
-    def validate_first_name(self, value):
-        if len(value) > 150:
-            raise serializers.ValidationError(
-                'Длина имени более 150 символов'
-            )
-        return value
-
-    def validate_last_name(self, value):
-        if len(value) > 150:
-            raise serializers.ValidationError(
-                'Длина фамилии более 150 символов'
-            )
-        return value
 
 
 class TokenObtainSerializer(serializers.Serializer):
