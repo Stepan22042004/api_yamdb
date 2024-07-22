@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from reviews.models import Category, Genre, Title, Review, Comment, User
 
-STATIC_DATA_PATH = 'api_yamdb/api_yamdb/static/data/'
+STATIC_DATA_PATH = 'static/data/'
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -162,7 +162,7 @@ class Command(BaseCommand):
                     author = User.objects.get(id=row[3])
                     comment, created = Comment.objects.get_or_create(
                         id=row[0],
-                        review='N/A' if review is None else review,
+                        review=review,
                         text=row[2],
                         author=author,
                         pub_date=parse_datetime(row[4])
