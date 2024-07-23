@@ -1,32 +1,34 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+USER = 'user'
+ADMIN = 'admin'
+MODERATOR = 'moderator'
+
+
+class IsAuthor(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return request.method in SAFE_METHODS or obj.author == request.user or request.user.role == ADMIN or request.user.role == MODERATOR
+
 
 class IsAuthorOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, obj):
-        return request.method in SAFE_METHODS or obj.author == request.user
-
-
-class IsAuthorOrModeratorOrAdmin(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated
-
-    def has_object_permission(self, request, view, obj):
-        return (
-            request.method in SAFE_METHODS
-            or obj.author == request.user
-            or request.user.is_staff
-            or request.user.is_superuser
-        )
+        if request.method in ['POST', 'PATCH', 'DELETE']:
+            return request.method in SAFE_METHODS or obj.author == request.user or request.user.role == ADMIN or request.user.role == MODERATOR
+        return True
 
 
 class IsAdminUser(BasePermission):
     def has_permission(self, request, view):
-        return request.user and (request.user.role == 'admin'
+        return request.user and (request.user.role == ADMIN
                                  or request.user.is_staff)
 
 
 class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):
-        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            return request.user and request.user.is_staff
-        return True
+        return request.method not in ['POST', 'PATCH', 'DELETE'] or (request.user and request.user.role == ADMIN)
+
+
+class IsAdminOrModeratorUser(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and (request.user.role == ADMIN
+                                 or request.user.role == MODERATOR)

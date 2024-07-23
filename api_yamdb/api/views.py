@@ -1,9 +1,8 @@
-from rest_framework import viewsets, status, mixins
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework import filters
-from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
-                                        IsAuthenticated)
-from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
+from rest_framework.decorators import action
+from reviews.models import Category, User, Genre, Review, Title
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework import generics, permissions
@@ -12,14 +11,15 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
-from rest_framework.exceptions import NotFound
+from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
+                                        IsAuthenticated)
 
 from reviews.models import generate_confirmation_code
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from api.filters import TitleFilter
-from api.permissions import IsAdminUser
+from api.permissions import (IsAdminUser, IsAdminOrReadOnly, IsAuthorOrReadOnly, IsAuthor)
 from api.serializers import (CategorySerializer, CommentSerializer,
-                             CustomUserSerializer, GenreSerializer,
+                             UserSerializer, GenreSerializer,
                              ReviewSerializer, TitleSerializer,
                              UserRegisterSerializer, TokenObtainSerializer,
                              AdminRegisterSerializer,
@@ -30,13 +30,12 @@ class UserRegisterView(APIView):
     """Отвечает за регистрацию анонимных
     пользователей и отправку кода на почту"""
     def post(self, request):
-        user = CustomUser.objects.filter(
+        user = User.objects.filter(
             username=request.data.get('username')).first()
         if user:
             if user.email != request.data.get('email'):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             user.confirmation_code = generate_confirmation_code()
-
             subject = 'Ваш код подтверждения'
             message = f'Ваш код подтверждения: {user.confirmation_code}'
             from_email = DEFAULT_FROM_EMAIL
@@ -46,77 +45,51 @@ class UserRegisterView(APIView):
                 'message': 'User already exists. New confirmation code sent.'
             }, status=status.HTTP_200_OK)
         serializer = UserRegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class AdminRegisterViewSet(viewsets.ViewSet):
+class AdminRegisterViewSet(viewsets.ModelViewSet):
     """Отвечает за возможность админа делать
-    различные запросы на адрес /users"""
+     различные запросы на адрес /users.
+    """
     permission_classes = (IsAuthenticated, IsAdminUser)
     pagination_class = LimitOffsetPagination
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
+    serializer_class = AdminRegisterSerializer
+    queryset = User.objects.all()
 
-    def create(self, request):
-        serializer = AdminRegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def list(self, request):
-        queryset = CustomUser.objects.all()
-        for backend in list(self.filter_backends):
-            queryset = backend().filter_queryset(self.request, queryset, self)
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(queryset, request)
-        if page is not None:
-            serializer = AdminRegisterSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
-        serializer = AdminRegisterSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def retrieve(self, request, pk=None):
-        try:
-            user = CustomUser.objects.get(username=pk)
-            serializer = AdminRegisterSerializer(user)
-            return Response(serializer.data)
-        except CustomUser.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    def partial_update(self, request, pk=None):
-        try:
-            user = CustomUser.objects.get(username=pk)
-            serializer = AdminRegisterSerializer(user, data=request.data,
-                                                 partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors,
-                            status=status.HTTP_400_BAD_REQUEST)
-        except CustomUser.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    def destroy(self, request, pk=None):  # Обработка DELETE запросов
-        try:
-            user = CustomUser.objects.get(username=pk)
+    @action(detail=False, methods=['get', 'patch', 'delete'], url_path='(?P<username>[^/.]+)')
+    def user_by_username(self, request, username=None):
+        if request.method == 'GET':
+            user = get_object_or_404(User, username=username)
+            serializer = self.get_serializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        if request.method == 'DELETE':
+            user = get_object_or_404(User, username=username)
             user.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except CustomUser.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+        else:
+            user = get_object_or_404(User, username=username)
+            serializer = self.get_serializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class TokenObtainView(APIView):
-    """Отвечает за работу с токеном(его получение при запросе)"""
+    """Отвечает за работу с токеном(его получение при запросе)."""
     def post(self, request):
         serializer = TokenObtainSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         username = serializer.validated_data['username']
         confirmation_code = serializer.validated_data['confirmation_code']
-        user = get_object_or_404(CustomUser, username=username)
+        user = get_object_or_404(User, username=username)
         # Проверка кода подтверждения
         if user.confirmation_code != confirmation_code:
             return Response(serializer.errors,
@@ -129,233 +102,95 @@ class TokenObtainView(APIView):
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = CustomUserSerializer
+    serializer_class = UserSerializer
 
     def get_object(self):
         return self.request.user
 
 
-class CustomUserViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all()
-    serializer_class = CustomUserSerializer
-
-
-class CategoryViewSet(mixins.ListModelMixin,
-                      mixins.CreateModelMixin,
-                      mixins.DestroyModelMixin,
-                      viewsets.GenericViewSet,
-                      ):
+class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     filter_backends = [filters.SearchFilter, DjangoFilterBackend]
     search_fields = ('name',)
+    http_method_names = ('get', 'post', 'delete', 'patch')
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadOnly]
 
-    def get_permissions(self):
-        if self.action in ['create', 'destroy', 'partial_update', 'update']:
-            self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
+    @action(detail=False, methods=['delete', 'patch'], url_path='(?P<slug>[^/.]+)', permission_classes=[IsAuthenticated, IsAdminUser])
+    def delete_category_by_slug(self, request, slug=None):
+        if request.method == 'DELETE':
+            category = get_object_or_404(Category, slug=slug)
+            category.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            self.permission_classes = (IsAuthenticatedOrReadOnly,)
-        return super().get_permissions()
-
-    def patch(self, request, *args, **kwargs):
-        if request.user.role == 'user':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def partial_update(self, request, *args, **kwargs):
-        if request.user.role == 'user':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def destroy(self, request, pk=None):
-        try:
-            instance = Category.objects.get(slug=pk)
-        except Category.DoesNotExist:
-            raise NotFound('Категория не найдена по данному slug')
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     pagination_class = LimitOffsetPagination
-    permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (filters.SearchFilter, DjangoFilterBackend,)
     search_fields = ('name',)
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadOnly]
+    http_method_names = ('get', 'post', 'delete', 'patch')
 
-    def partial_update(self, request, *args, **kwargs):
-        if request.user.role == 'user' or request.user.role == 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def get_permissions(self):
-        if self.action in ['create', 'destroy']:
-            self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
-        return super().get_permissions()
-
-    def destroy(self, request, pk=None):
-        try:
-            instance = Genre.objects.get(slug=pk)
-        except Genre.DoesNotExist:
-            raise NotFound('Категория не найдена по данному slug')
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def retrieve(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    @action(detail=False, methods=['delete', 'get'], url_path='(?P<slug>[^/.]+)', permission_classes=[IsAuthenticated, IsAdminUser])
+    def delete_genre_by_slug(self, request, slug=None):
+        if request.method == 'DELETE':
+            genre = get_object_or_404(Genre, slug=slug)
+            genre.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
-
-    def get_permissions(self):
-        if self.action in ['create', 'destroy']:
-            self.permission_classes = [IsAuthenticatedOrReadOnly, IsAdminUser]
-        return super().get_permissions()
-
-    def update(self, request, *args, **kwargs):
-        # Отключить PUT-запросы
-        if request.method == 'PUT':
-            return Response(
-                {"detail": "Method 'PUT' not allowed."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        # Оставить PATCH-запросы
-        return super().update(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-        if request.user.role == 'user' or request.user.role == 'moderator':
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        instance = self.get_object()
-        serializer = self.get_serializer(
-            instance,
-            data=request.data,
-            partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    http_method_names = ('get', 'post', 'delete', 'patch')
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ['create', 'partial_update']:
             return TitleCreateUpdateSerializer
         return TitleSerializer
 
 
-class ReviewViewSet(mixins.ListModelMixin,
-                    mixins.CreateModelMixin,
-                    mixins.DestroyModelMixin,
-                    viewsets.GenericViewSet,
-                    mixins.RetrieveModelMixin,
-                    mixins.UpdateModelMixin,):
-    queryset = Review.objects.all()
+class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
+    http_method_names = ('get', 'post', 'delete', 'patch')
+
+    def get_queryset(self):
+        title_id = self.kwargs.get('title_id')
+        review = Review.objects.filter(title_id=title_id)
+        if len(review) == 0:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return review
 
     def perform_create(self, serializer):
         title_id = self.kwargs.get('title_id')
-        title = title = get_object_or_404(Title, id=title_id)
+        title = get_object_or_404(Title, id=title_id)
         author = self.request.user
-
-        if Review.objects.filter(title=title, author=author).exists():
-            raise ValidationError(
-                'Вы уже оставили отзыв для этого произведения.'
-            )
-
         serializer.save(author=author, title=title)
         title.update_rating()
 
-    def perform_update(self, serializer):
-        review = serializer.save()
-        review.title.update_rating()
-
-    def partial_update(self, request, *args, **kwargs):
-        if request.method == 'PUT':
-            return Response(
-                {"detail": "Method 'PUT' not allowed."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        review = self.get_object()
-        if request.user.role == 'user' and review.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        return super().partial_update(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        if request.method == 'PUT':
-            return Response(
-                {"detail": "Method 'PUT' not allowed."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        review = self.get_object()
-        if request.user.role == 'user' and review.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        review = self.get_object()
-        if request.user.role == 'user' and review.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        return super().destroy(request, *args, **kwargs)
-
 
 class CommentViewSet(viewsets.ModelViewSet):
-    queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    http_method_names = ('get', 'post', 'delete', 'patch')
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthor)
 
     def get_queryset(self):
         review_id = self.kwargs.get('review_id')
-        return get_object_or_404(Review, id=review_id).comments.all()
+        title_id = self.kwargs.get('title_id')
+        return get_object_or_404(Review, id=review_id, title_id=title_id).comments.all()
 
     def perform_create(self, serializer):
         review_id = self.kwargs.get('review_id')
-        review = get_object_or_404(Review, id=review_id)
+        title_id = self.kwargs.get('title_id')
+        review = get_object_or_404(Review, id=review_id, title_id=title_id)
         serializer.save(author=self.request.user, review=review)
-
-    def update(self, request, *args, **kwargs):
-        if request.method == 'PUT':
-            return Response(
-                {"detail": "Method 'PUT' not allowed."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        comment = self.get_object()
-        if request.user.role == 'admin' or request.user.role == 'moderator':
-            return super().update(request, *args, **kwargs)
-        if comment.author != request.user:
-            return Response(
-                {"detail": "You do not have permission"
-                 "to modify this comment."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().update(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-        if request.method == 'PUT':
-            return Response(
-                {"detail": "Method 'PUT' not allowed."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-        comment = self.get_object()
-        if request.user.role == 'admin' or request.user.role == 'moderator':
-            return super().update(request, *args, **kwargs)
-        if comment.author != request.user:
-            return Response(
-                {"detail": "You do not have permission"
-                 " to modify this comment."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return super().partial_update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if request.user.role == 'user' and comment.author != request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)

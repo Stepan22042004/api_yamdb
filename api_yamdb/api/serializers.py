@@ -1,9 +1,10 @@
 from rest_framework import serializers
-from reviews.models import Category, Genre, Title, Review, Comment, CustomUser
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.conf import settings
 
-from api_yamdb.settings import DEFAULT_FROM_EMAIL
+from reviews.models import Category, Genre, Title, Review, Comment, User
+from reviews.models import generate_confirmation_code
 
 MIN_SCORE = 1
 MAX_SCORE = 10
@@ -11,20 +12,20 @@ MAX_SCORE = 10
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ('email', 'username')
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(
+        user = User.objects.get_or_create(
             email=validated_data['email'],
             username=validated_data['username'],
         )
         subject = 'Ваш код подтверждения'
-        message = f'Ваш код подтверждения: {user.confirmation_code}'
-        from_email = DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
+        message = f'Ваш код подтверждения: {user[0].confirmation_code}'
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user[0].email]
         send_mail(subject, message, from_email, recipient_list)
-        return user
+        return user[0]
 
     def validate_username(self, value):
         if value == 'me':
@@ -34,30 +35,12 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return value
 
 
+
 class AdminRegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ['username', 'email', 'role',
                   'bio', 'first_name', 'last_name']
-
-    def create(self, validated_data):
-        user = CustomUser.objects.create_user(**validated_data)
-        user.save()
-        return user
-
-    def validate_first_name(self, value):
-        if len(value) > 150:
-            raise serializers.ValidationError(
-                'Длина имени более 150 символов'
-            )
-        return value
-
-    def validate_last_name(self, value):
-        if len(value) > 150:
-            raise serializers.ValidationError(
-                'Длина фамилии более 150 символов'
-            )
-        return value
 
 
 class TokenObtainSerializer(serializers.Serializer):
@@ -65,9 +48,9 @@ class TokenObtainSerializer(serializers.Serializer):
     confirmation_code = serializers.CharField()
 
 
-class CustomUserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CustomUser
+        model = User
         fields = ['id', 'username', 'email',
                   'first_name', 'last_name', 'bio', 'role']
         read_only_fields = ['id', 'role']
@@ -139,6 +122,15 @@ class ReviewSerializer(serializers.ModelSerializer):
                 f'Оценка должна быть от {MIN_SCORE} до {MAX_SCORE}.'
             )
         return value
+
+    def validate(self, data):
+        request = self.context.get('request')
+        title_id = self.context.get('view').kwargs.get('title_id')
+
+        if request and request.method == 'POST':
+            if Review.objects.filter(title_id=title_id, author=request.user).exists():
+                raise serializers.ValidationError('Вы уже оставили отзыв для этого произведения.')        
+        return data
 
 
 class CommentSerializer(serializers.ModelSerializer):

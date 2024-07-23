@@ -1,16 +1,19 @@
 import csv
 import logging
+
 from django.core.management.base import BaseCommand
-from reviews.models import Category, Genre, Title, Review, Comment, CustomUser
 from django.utils.dateparse import parse_datetime
 from django.core.exceptions import ObjectDoesNotExist
 
-STATIC_DATA_PATH = 'api_yamdb/api_yamdb/static/data/'
+from reviews.models import Category, Genre, Title, Review, Comment, User
+
+STATIC_DATA_PATH = 'static/data/'
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(name)s - %(message)s'
 )
+
 
 class Command(BaseCommand):
     help = 'Import data from CSV files'
@@ -33,7 +36,7 @@ class Command(BaseCommand):
             next(reader)
             for row in reader:
                 try:
-                    user, created = CustomUser.objects.get_or_create(
+                    user, created = User.objects.get_or_create(
                         id=row[0],
                         defaults={
                             'username': row[1],
@@ -129,8 +132,8 @@ class Command(BaseCommand):
                     continue  # Пропускаем строки с отсутствующим заголовком
 
                 try:
-                    author = CustomUser.objects.get(id=row[3])
-                except CustomUser.DoesNotExist:
+                    author = User.objects.get(id=row[3])
+                except User.DoesNotExist:
                     logger.warning(f'Автор с id {row[3]} не найден.')
                     continue  # Пропускаем строки с отсутствующим автором
 
@@ -156,10 +159,10 @@ class Command(BaseCommand):
             for row in reader:
                 try:
                     review = Review.objects.get(id=row[1])
-                    author = CustomUser.objects.get(id=row[3])
+                    author = User.objects.get(id=row[3])
                     comment, created = Comment.objects.get_or_create(
                         id=row[0],
-                        review='N/A' if review is None else review,
+                        review=review,
                         text=row[2],
                         author=author,
                         pub_date=parse_datetime(row[4])
