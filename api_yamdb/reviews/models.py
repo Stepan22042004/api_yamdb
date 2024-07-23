@@ -142,7 +142,10 @@ class Review(models.Model):
 
     class Meta:
         constraints = [
-            UniqueConstraint(fields=['title', 'author'], name='unique_title_author')
+            UniqueConstraint(
+                fields=['title', 'author'],
+                name='unique_title_author'
+            )
         ]
 
     def __str__(self):
