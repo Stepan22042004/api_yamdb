@@ -1,9 +1,9 @@
-from rest_framework import serializers
-from django.utils import timezone
-from django.core.mail import send_mail
 from django.conf import settings
+from django.core.mail import send_mail
+from django.utils import timezone
+from rest_framework import serializers
 
-from reviews.models import Category, Genre, Title, Review, Comment, User
+from reviews.models import Category, Comment, Genre, Review, Title, User
 
 MIN_SCORE = 1
 MAX_SCORE = 10

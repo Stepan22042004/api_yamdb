@@ -1,28 +1,26 @@
-from rest_framework import viewsets, status
-from rest_framework.views import APIView
-from rest_framework import filters
-from rest_framework.decorators import action
-from reviews.models import Category, User, Genre, Review, Title
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework import generics, permissions
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
-from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
-                                        IsAuthenticated)
+from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from api.filters import TitleFilter
-from api.permissions import (IsAdminUser, IsAdminOrReadOnly,
-                             IsAuthorOrReadOnly, IsAuthor)
-from api.serializers import (CategorySerializer, CommentSerializer,
-                             UserSerializer, GenreSerializer,
-                             ReviewSerializer, TitleSerializer,
-                             UserRegisterSerializer, TokenObtainSerializer,
-                             AdminRegisterSerializer,
-                             TitleCreateUpdateSerializer)
+from api.permissions import (IsAdminOrReadOnly, IsAdminUser, IsAuthor,
+                             IsAuthorOrReadOnly)
+from api.serializers import (AdminRegisterSerializer, CategorySerializer,
+                             CommentSerializer, GenreSerializer,
+                             ReviewSerializer, TitleCreateUpdateSerializer,
+                             TitleSerializer, TokenObtainSerializer,
+                             UserRegisterSerializer, UserSerializer)
+from api_yamdb.settings import DEFAULT_FROM_EMAIL
+from reviews.models import Category, Genre, Review, Title, User
+
 
 
 class UserRegisterView(APIView):

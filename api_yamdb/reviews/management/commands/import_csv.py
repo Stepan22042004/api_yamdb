@@ -1,11 +1,11 @@
 import csv
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import BaseCommand
 from django.utils.dateparse import parse_datetime
-from django.core.exceptions import ObjectDoesNotExist
 
-from reviews.models import Category, Genre, Title, Review, Comment, User
+from reviews.models import Category, Comment, Genre, Review, Title, User
 
 STATIC_DATA_PATH = 'static/data/'
 
