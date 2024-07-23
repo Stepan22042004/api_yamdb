@@ -10,6 +10,7 @@ class GenreInline(admin.TabularInline):
     model = Title.genre.through
     extra = 1
 
+
 @admin.register(Title)
 class TitleAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'display_genre')
@@ -19,6 +20,7 @@ class TitleAdmin(admin.ModelAdmin):
     def display_genre(self, obj):
         return ", ".join([genre.name for genre in obj.genre.all()])
     display_genre.short_description = 'Genres'
+
 
 # Настройка админки для модели Category
 @admin.register(Category)
@@ -33,6 +35,7 @@ class UserChangeForm(UserChangeForm):
         model = User
         fields = '__all__'
 
+
 class UserCreationForm(UserCreationForm):
     class Meta:
         model = User
@@ -45,7 +48,8 @@ class UserAdmin(BaseUserAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
 
-    list_display = ('email', 'username', 'first_name', 'last_name', 'is_active', 'is_staff', 'role')
+    list_display = ('email', 'username', 'first_name',
+                    'last_name', 'is_active', 'is_staff', 'role')
     list_editable = ('role', 'is_active', 'is_staff')
 
     # Настройка доп. полей в форме изменения пользователя
