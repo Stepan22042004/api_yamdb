@@ -51,6 +51,7 @@ python3 manage.py migrate
 
 ```
 python3 manage.py runserver
+```
 
 ### Примеры запросов и ответов
 Добавление произведения
@@ -70,7 +71,7 @@ python3 manage.py runserver
 Получение комментариев
 ```
 http://127.0.0.1:8000/api/v1/titles/Title1/reviews/Review2/comments/
-
+```
 ### Информация об авторах
 Герасимов Степан
 Чугунова Анастасия
