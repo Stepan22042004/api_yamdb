@@ -1,3 +1,4 @@
+from django.db.models import Avg
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -20,7 +21,6 @@ from api.serializers import (AdminRegisterSerializer, CategorySerializer,
                              UserRegisterSerializer, UserSerializer)
 from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from reviews.models import Category, Genre, Review, Title, User
-
 
 
 class UserRegisterView(APIView):
@@ -169,6 +169,10 @@ class TitleViewSet(viewsets.ModelViewSet):
     filterset_class = TitleFilter
     http_method_names = ('get', 'post', 'delete', 'patch')
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.annotate(rating=Avg('reviews__score'))
+
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update']:
             return TitleCreateUpdateSerializer
@@ -192,7 +196,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         title = get_object_or_404(Title, id=title_id)
         author = self.request.user
         serializer.save(author=author, title=title)
-        title.update_rating()
 
 
 class CommentViewSet(viewsets.ModelViewSet):

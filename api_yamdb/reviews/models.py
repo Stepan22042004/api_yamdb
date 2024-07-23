@@ -101,14 +101,6 @@ class Title(models.Model):
         related_name='titles'
     )
 
-    rating = models.FloatField(null=True, blank=True)
-
-    def update_rating(self):
-        new_rating = self.calculate_rating()
-        if new_rating != self.rating:
-            self.rating = new_rating
-            super().save(update_fields=['rating'])
-
     def calculate_rating(self):
         reviews = self.reviews.all()
         if reviews.exists():
