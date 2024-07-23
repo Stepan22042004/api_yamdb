@@ -55,7 +55,6 @@ python3 manage.py runserver
 ### Примеры запросов и ответов
 Добавление произведения
 ```
-[
 {
     "name": "Admin Title",
     "year": 2020,
@@ -66,16 +65,13 @@ python3 manage.py runserver
     ],
     "category": "Category1"
 }
-]
 ```
 
 Получение комментариев
 ```
 http://127.0.0.1:8000/api/v1/titles/Title1/reviews/Review2/comments/
 ```
-Ответ
-```
-[
-
-]
-```
+### Информация об авторах
+Герасимов Степан
+Чугунова Анастасия
+Широбоков Павел
