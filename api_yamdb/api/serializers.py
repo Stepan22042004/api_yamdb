@@ -4,6 +4,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 from reviews.models import Category, Genre, Title, Review, Comment, User
+from reviews.models import generate_confirmation_code
 
 MIN_SCORE = 1
 MAX_SCORE = 10
@@ -32,6 +33,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 'Недопустимое имя'
             )
         return value
+
 
 
 class AdminRegisterSerializer(serializers.ModelSerializer):
@@ -120,6 +122,15 @@ class ReviewSerializer(serializers.ModelSerializer):
                 f'Оценка должна быть от {MIN_SCORE} до {MAX_SCORE}.'
             )
         return value
+
+    def validate(self, data):
+        request = self.context.get('request')
+        title_id = self.context.get('view').kwargs.get('title_id')
+
+        if request and request.method == 'POST':
+            if Review.objects.filter(title_id=title_id, author=request.user).exists():
+                raise serializers.ValidationError('Вы уже оставили отзыв для этого произведения.')        
+        return data
 
 
 class CommentSerializer(serializers.ModelSerializer):

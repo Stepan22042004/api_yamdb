@@ -47,6 +47,7 @@ class UserRegisterView(APIView):
         serializer = UserRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -174,12 +175,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         title_id = self.kwargs.get('title_id')
         title = get_object_or_404(Title, id=title_id)
         author = self.request.user
-
-        if Review.objects.filter(title=title, author=author).exists():
-            raise ValidationError(
-                'Вы уже оставили отзыв для этого произведения.'
-            )
-
         serializer.save(author=author, title=title)
         title.update_rating()
 
