@@ -1,29 +1,26 @@
-from rest_framework import viewsets, status
-from rest_framework.views import APIView
-from rest_framework import filters
-from rest_framework.decorators import action
-from reviews.models import Category, User, Genre, Review, Title
-from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework import generics, permissions
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Avg
 from django.core.mail import send_mail
-from rest_framework.permissions import (IsAuthenticatedOrReadOnly,
-                                        IsAuthenticated)
+from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from reviews.models import generate_confirmation_code
-from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from api.filters import TitleFilter
-from api.permissions import (IsAdminUser, IsAdminOrReadOnly, IsAuthorOrReadOnly, IsAuthor)
-from api.serializers import (CategorySerializer, CommentSerializer,
-                             UserSerializer, GenreSerializer,
-                             ReviewSerializer, TitleSerializer,
-                             UserRegisterSerializer, TokenObtainSerializer,
-                             AdminRegisterSerializer,
-                             TitleCreateUpdateSerializer)
+from api.permissions import (IsAdminOrReadOnly, IsAdminUser, IsAuthor,
+                             IsAuthorOrReadOnly)
+from api.serializers import (AdminRegisterSerializer, CategorySerializer,
+                             CommentSerializer, GenreSerializer,
+                             ReviewSerializer, TitleCreateUpdateSerializer,
+                             TitleSerializer, TokenObtainSerializer,
+                             UserRegisterSerializer, UserSerializer)
+from api_yamdb.settings import DEFAULT_FROM_EMAIL
+from reviews.models import Category, Genre, Review, Title, User
 
 
 class UserRegisterView(APIView):
@@ -35,7 +32,7 @@ class UserRegisterView(APIView):
         if user:
             if user.email != request.data.get('email'):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
-            user.confirmation_code = generate_confirmation_code()
+            user.save()
             subject = 'Ваш код подтверждения'
             message = f'Ваш код подтверждения: {user.confirmation_code}'
             from_email = DEFAULT_FROM_EMAIL
@@ -47,7 +44,6 @@ class UserRegisterView(APIView):
         serializer = UserRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -62,7 +58,11 @@ class AdminRegisterViewSet(viewsets.ModelViewSet):
     serializer_class = AdminRegisterSerializer
     queryset = User.objects.all()
 
-    @action(detail=False, methods=['get', 'patch', 'delete'], url_path='(?P<username>[^/.]+)')
+    @action(
+        detail=False,
+        methods=['get', 'patch', 'delete'],
+        url_path='(?P<username>[^/.]+)'
+    )
     def user_by_username(self, request, username=None):
         if request.method == 'GET':
             user = get_object_or_404(User, username=username)
@@ -74,11 +74,17 @@ class AdminRegisterViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             user = get_object_or_404(User, username=username)
-            serializer = self.get_serializer(user, data=request.data, partial=True)
+            serializer = self.get_serializer(
+                user,
+                data=request.data,
+                partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
@@ -116,7 +122,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
     http_method_names = ('get', 'post', 'delete', 'patch')
     permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadOnly]
 
-    @action(detail=False, methods=['delete', 'patch'], url_path='(?P<slug>[^/.]+)', permission_classes=[IsAuthenticated, IsAdminUser])
+    @action(
+        detail=False,
+        methods=['delete', 'patch'],
+        url_path='(?P<slug>[^/.]+)',
+        permission_classes=[IsAuthenticated, IsAdminUser]
+    )
     def delete_category_by_slug(self, request, slug=None):
         if request.method == 'DELETE':
             category = get_object_or_404(Category, slug=slug)
@@ -135,7 +146,12 @@ class GenreViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly, IsAdminOrReadOnly]
     http_method_names = ('get', 'post', 'delete', 'patch')
 
-    @action(detail=False, methods=['delete', 'get'], url_path='(?P<slug>[^/.]+)', permission_classes=[IsAuthenticated, IsAdminUser])
+    @action(
+        detail=False,
+        methods=['delete', 'get'],
+        url_path='(?P<slug>[^/.]+)',
+        permission_classes=[IsAuthenticated, IsAdminUser]
+    )
     def delete_genre_by_slug(self, request, slug=None):
         if request.method == 'DELETE':
             genre = get_object_or_404(Genre, slug=slug)
@@ -152,6 +168,10 @@ class TitleViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
     http_method_names = ('get', 'post', 'delete', 'patch')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.annotate(rating=Avg('reviews__score'))
 
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update']:
@@ -176,7 +196,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         title = get_object_or_404(Title, id=title_id)
         author = self.request.user
         serializer.save(author=author, title=title)
-        title.update_rating()
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -187,7 +206,11 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         review_id = self.kwargs.get('review_id')
         title_id = self.kwargs.get('title_id')
-        return get_object_or_404(Review, id=review_id, title_id=title_id).comments.all()
+        return get_object_or_404(
+            Review,
+            id=review_id,
+            title_id=title_id
+        ).comments.all()
 
     def perform_create(self, serializer):
         review_id = self.kwargs.get('review_id')

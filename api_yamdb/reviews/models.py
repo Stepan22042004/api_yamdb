@@ -1,12 +1,14 @@
-from django.contrib.auth.models import AbstractUser
+import datetime
+
 from django.conf import settings
-from django.core.validators import RegexValidator
+from django.contrib.auth.models import AbstractUser
+from django.core.validators import (MaxValueValidator, MinValueValidator,
+                                    RegexValidator)
 from django.db import models
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import UniqueConstraint
 
-from reviews.service import generate_confirmation_code
 from reviews.managers import UserManager
+from reviews.service import generate_confirmation_code
 from reviews.validators import validate_username
 
 FIRST_LETTERS_AMOUNT = 20
@@ -82,7 +84,9 @@ class Title(models.Model):
     """Модель произведения, связанная с категорией и жанрами."""
 
     name = models.CharField(max_length=256)
-    year = models.PositiveSmallIntegerField()
+    year = models.PositiveSmallIntegerField(
+        validators=[MaxValueValidator(datetime.datetime.now().year)]
+    )
     description = models.TextField(blank=True)
     category = models.ForeignKey(
         Category,
@@ -96,14 +100,6 @@ class Title(models.Model):
         blank=False,
         related_name='titles'
     )
-
-    rating = models.FloatField(null=True, blank=True)
-
-    def update_rating(self):
-        new_rating = self.calculate_rating()
-        if new_rating != self.rating:
-            self.rating = new_rating
-            super().save(update_fields=['rating'])
 
     def calculate_rating(self):
         reviews = self.reviews.all()
@@ -142,7 +138,10 @@ class Review(models.Model):
 
     class Meta:
         constraints = [
-            UniqueConstraint(fields=['title', 'author'], name='unique_title_author')
+            UniqueConstraint(
+                fields=['title', 'author'],
+                name='unique_title_author'
+            )
         ]
 
     def __str__(self):
