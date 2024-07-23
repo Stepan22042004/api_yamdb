@@ -1,12 +1,14 @@
-from django.contrib.auth.models import AbstractUser
+import datetime
+
 from django.conf import settings
-from django.core.validators import RegexValidator
+from django.contrib.auth.models import AbstractUser
+from django.core.validators import (MaxValueValidator, MinValueValidator,
+                                    RegexValidator)
 from django.db import models
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import UniqueConstraint
 
-from reviews.service import generate_confirmation_code
 from reviews.managers import UserManager
+from reviews.service import generate_confirmation_code
 from reviews.validators import validate_username
 
 FIRST_LETTERS_AMOUNT = 20
@@ -82,7 +84,9 @@ class Title(models.Model):
     """Модель произведения, связанная с категорией и жанрами."""
 
     name = models.CharField(max_length=256)
-    year = models.PositiveSmallIntegerField()
+    year = models.PositiveSmallIntegerField(
+        validators=[MaxValueValidator(datetime.datetime.now().year)]
+    )
     description = models.TextField(blank=True)
     category = models.ForeignKey(
         Category,

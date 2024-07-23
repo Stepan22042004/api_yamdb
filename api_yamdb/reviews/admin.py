@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
-from .models import Category, Comment, User, Genre, Review, Title
+from reviews.models import Category, Comment, Genre, Review, Title, User
 
 
 # Отображение связанных объектов в админке в виде табличной формы
