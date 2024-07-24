@@ -1,26 +1,25 @@
-import datetime
-
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import (MaxValueValidator, MinValueValidator,
-                                    RegexValidator)
+from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import UniqueConstraint
+
 
 from reviews.managers import UserManager
 from reviews.service import generate_confirmation_code
-from reviews.validators import validate_username
-
-FIRST_LETTERS_AMOUNT = 20
-USERNAME_MAX_LEN = 150
-USER = 'user'
-ADMIN = 'admin'
-MODERATOR = 'moderator'
-ROLE_CHOICES = (
-    (USER, 'User'),
-    (MODERATOR, 'Moderator'),
-    (ADMIN, 'Admin'),
-)
+from reviews.validators import validate_username, validate_year
+from reviews.constants import (CATEGORY_NAME_MAX_LEN,
+                               CONFIRMATION_CODE_MAX_LEN,
+                               EMAIL_MAX_LEN,
+                               MAX_SCORE,
+                               MIN_SCORE,
+                               ROLE_MAX_LEN,
+                               TEXT_PREVIEW_LEN,
+                               TITLE_NAME_MAX_LEN,
+                               USERNAME_MAX_LEN,
+                               USER,
+                               ROLE_CHOICES)
 
 
 class User(AbstractUser):
@@ -36,18 +35,26 @@ class User(AbstractUser):
                         'Letters, digits and @/./+/-/_ only.'
             ),
             validate_username
-        ]
+        ],
+        verbose_name='Имя пользователя'
     )
     email = models.EmailField(
-        max_length=254,
-        unique=True
+        max_length=EMAIL_MAX_LEN,
+        unique=True,
+        verbose_name='Электронная почта'
     )
-    confirmation_code = models.CharField(max_length=100, blank=True, null=True)
-    bio = models.TextField(blank=True)
+    confirmation_code = models.CharField(
+        max_length=CONFIRMATION_CODE_MAX_LEN,
+        blank=True,
+        null=True,
+        verbose_name='Код подтверждения'
+    )
+    bio = models.TextField(blank=True, verbose_name='Биография')
     role = models.CharField(
-        max_length=10,
+        max_length=ROLE_MAX_LEN,
         choices=ROLE_CHOICES,
-        default=USER
+        default=USER,
+        verbose_name='Роль'
     )
     objects = UserManager()
 
@@ -59,47 +66,63 @@ class User(AbstractUser):
             self.confirmation_code = generate_confirmation_code()
         super(User, self).save(*args, **kwargs)
 
+    class Meta:
+        verbose_name = 'пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('username',)
 
-class Category(models.Model):
+
+class AbstractNameSlug(models.Model):
+    """Абстрактная модель для с полями 'name' и 'slug'."""
+    name = models.CharField(
+        max_length=CATEGORY_NAME_MAX_LEN, verbose_name='Название'
+    )
+    slug = models.SlugField(
+        unique=True, verbose_name='Уникальный идентификатор'
+    )
+
+    class Meta:
+        abstract = True
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
+
+
+class Category(AbstractNameSlug):
     """Модель категории с уникальным именем и слагом."""
 
-    name = models.CharField(max_length=256)
-    slug = models.SlugField(unique=True)
-
-    def __str__(self):
-        return self.name
+    class Meta(AbstractNameSlug.Meta):
+        verbose_name = 'категория'
+        verbose_name_plural = 'Категории'
 
 
-class Genre(models.Model):
+class Genre(AbstractNameSlug):
     """Модель жанра с уникальным именем и слагом."""
 
-    name = models.CharField(max_length=256)
-    slug = models.SlugField(unique=True)
-
-    def __str__(self):
-        return self.name
+    class Meta(AbstractNameSlug.Meta):
+        verbose_name = 'жанр'
+        verbose_name_plural = 'Жанры'
 
 
 class Title(models.Model):
     """Модель произведения, связанная с категорией и жанрами."""
 
-    name = models.CharField(max_length=256)
-    year = models.PositiveSmallIntegerField(
-        validators=[MaxValueValidator(datetime.datetime.now().year)]
+    name = models.CharField(
+        max_length=TITLE_NAME_MAX_LEN, verbose_name='Название'
     )
-    description = models.TextField(blank=True)
+    year = models.PositiveSmallIntegerField(
+        validators=[validate_year], verbose_name='Год'
+    )
+    description = models.TextField(blank=True, verbose_name='Описание')
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
         null=True,
         blank=False,
-        related_name='titles'
+        verbose_name='Категория'
     )
-    genre = models.ManyToManyField(
-        Genre,
-        blank=False,
-        related_name='titles'
-    )
+    genre = models.ManyToManyField(Genre, blank=False, verbose_name='Жанр')
 
     def calculate_rating(self):
         reviews = self.reviews.all()
@@ -110,8 +133,35 @@ class Title(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = 'произведение'
+        verbose_name_plural = 'Произведения'
+        default_related_name = 'titles'
+        ordering = ('name',)
 
-class Review(models.Model):
+
+class AbstractReviewComment(models.Model):
+    """Абстрактная модель для отзывов и комментариев."""
+
+    text = models.TextField(verbose_name='Текст')
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='Автор'
+    )
+    pub_date = models.DateTimeField(
+        auto_now_add=True, verbose_name='Дата публикации'
+    )
+
+    class Meta:
+        abstract = True
+        ordering = ('pub_date',)
+
+    def __str__(self):
+        return self.text[:TEXT_PREVIEW_LEN]
+
+
+class Review(AbstractReviewComment):
     """
     Модель отзыва, связанная с произведением и пользователем (автором),
     с каскадным удалением отзывов при удалении произведения или пользователя.
@@ -120,51 +170,40 @@ class Review(models.Model):
     title = models.ForeignKey(
         Title,
         on_delete=models.CASCADE,
-        related_name='reviews'
-    )
-    text = models.TextField()
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='reviews'
+        verbose_name='Произведение'
     )
     score = models.PositiveSmallIntegerField(
         validators=[
-            MaxValueValidator(10),
-            MinValueValidator(1)
-        ]
+            MaxValueValidator(MAX_SCORE),
+            MinValueValidator(MIN_SCORE)
+        ],
+        verbose_name='Оценка'
     )
-    pub_date = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
+    class Meta(AbstractReviewComment.Meta):
         constraints = [
             UniqueConstraint(
-                fields=['title', 'author'],
-                name='unique_title_author'
+                fields=['title', 'author'], name='unique_title_author'
             )
         ]
+        default_related_name = 'reviews'
+        verbose_name = 'отзыв'
+        verbose_name_plural = 'Отзывы'
 
-    def __str__(self):
-        return self.text[:FIRST_LETTERS_AMOUNT]
 
-
-class Comment(models.Model):
+class Comment(AbstractReviewComment):
     """
     Модель комментария, связанная с отзывом и пользователем (автором),
     с каскадным удалением комментариев при удалении отзыва или пользователя.
     """
+
     review = models.ForeignKey(
         Review,
         on_delete=models.CASCADE,
-        related_name='comments'
+        verbose_name='Отзыв'
     )
-    text = models.TextField()
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='comments'
-    )
-    pub_date = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return self.text[:FIRST_LETTERS_AMOUNT]
+    class Meta(AbstractReviewComment.Meta):
+        verbose_name = 'комментарий'
+        verbose_name_plural = 'Комментарии'
+        default_related_name = 'comments'
