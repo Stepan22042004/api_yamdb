@@ -22,12 +22,12 @@ router_v1.register(
 )
 
 api_v1_auth_urls = [
-    path('users/me/', UserProfileView.as_view(), name='user-profile'),
-    path('auth/signup/', UserRegisterView.as_view(), name='signup'),
-    path('auth/token/', TokenObtainView.as_view(), name='token_obtain')
+    path('signup/', UserRegisterView.as_view(), name='signup'),
+    path('token/', TokenObtainView.as_view(), name='token_obtain')
 ]
 
 urlpatterns = [
-    path('v1/', include(api_v1_auth_urls)),
+    path('v1/users/me/', UserProfileView.as_view(), name='user-profile'),
+    path('v1/auth/', include(api_v1_auth_urls)),
     path('v1/', include(router_v1.urls))
 ]

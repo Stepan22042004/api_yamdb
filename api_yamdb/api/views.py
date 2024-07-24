@@ -25,7 +25,8 @@ from reviews.models import Category, Genre, Review, Title, User
 
 class UserRegisterView(APIView):
     """Отвечает за регистрацию анонимных
-    пользователей и отправку кода на почту"""
+    пользователей и отправку кода на почту."""
+
     def post(self, request):
         user = User.objects.filter(
             username=request.data.get('username')).first()
@@ -51,6 +52,7 @@ class AdminRegisterViewSet(viewsets.ModelViewSet):
     """Отвечает за возможность админа делать
      различные запросы на адрес /users.
     """
+
     permission_classes = (IsAuthenticated, IsAdminUser)
     pagination_class = LimitOffsetPagination
     filter_backends = (filters.SearchFilter,)
@@ -162,7 +164,6 @@ class GenreViewSet(viewsets.ModelViewSet):
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.all()
     serializer_class = TitleSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, IsAdminOrReadOnly)
     filter_backends = (DjangoFilterBackend,)

@@ -8,17 +8,17 @@ MODERATOR = 'moderator'
 class IsAuthor(BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.method in SAFE_METHODS or (
-            obj.author == request.user) or (
-                request.user.role == ADMIN) or (request.user.role == MODERATOR)
+            request.user and obj.author == request.user) or (
+                request.user and request.user.role == ADMIN) or (
+                    request.user and request.user.role == MODERATOR)
 
 
 class IsAuthorOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in ['POST', 'PATCH', 'DELETE']:
-            return request.method in SAFE_METHODS or (
-                obj.author == request.user) or (
-                    request.user.role == ADMIN) or (
-                        request.user.role == MODERATOR)
+            return obj.author == request.user or (
+                request.user.role == ADMIN) or (
+                    request.user.role == MODERATOR)
         return True
 
 
@@ -30,7 +30,7 @@ class IsAdminUser(BasePermission):
 
 class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):
-        return request.method not in ['POST', 'PATCH', 'DELETE'] or (
+        return request.method in SAFE_METHODS or (
             request.user and request.user.role == ADMIN)
 
 

@@ -3,7 +3,7 @@ from django.utils import timezone
 
 
 def validate_username(value):
-    if value.lower() == 'me':
+    if value == 'me':
         raise ValidationError(
             '%(value)s is not a valid username',
             params={'value': value},
