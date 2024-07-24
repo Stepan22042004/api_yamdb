@@ -5,8 +5,9 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from reviews.models import Category, Comment, Genre, Review, Title, User
 
 
-# Отображение связанных объектов в админке в виде табличной формы
 class GenreInline(admin.TabularInline):
+    """Отображение связанных объектов в админке в виде табличной формы."""
+
     model = Title.genre.through
     extra = 1
 
@@ -22,29 +23,18 @@ class TitleAdmin(admin.ModelAdmin):
     display_genre.short_description = 'Genres'
 
 
-# Настройка админки для модели Category
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
+    """Настройка админки для модели Category."""
+
     list_display = ('name',)
-    # Устанавливаем ссылку для редактирования
     list_display_links = ('name',)
-
-
-class UserChangeForm(UserChangeForm):
-    class Meta:
-        model = User
-        fields = '__all__'
-
-
-class UserCreationForm(UserCreationForm):
-    class Meta:
-        model = User
-        fields = ('username', 'email', 'role', 'is_active', 'is_staff')
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    # Формы для изменения и добавления пользователя
+    """Формы для изменения и добавления пользователя."""
+
     form = UserChangeForm
     add_form = UserCreationForm
 
