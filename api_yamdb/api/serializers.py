@@ -3,10 +3,8 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import serializers
 
+from .constants import FORBIDDEN_NAME, MAX_SCORE, MIN_SCORE
 from reviews.models import Category, Comment, Genre, Review, Title, User
-
-MIN_SCORE = 1
-MAX_SCORE = 10
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -15,19 +13,19 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ('email', 'username')
 
     def create(self, validated_data):
-        user = User.objects.get_or_create(
+        user, _ = User.objects.get_or_create(
             email=validated_data['email'],
             username=validated_data['username'],
         )
         subject = 'Ваш код подтверждения'
-        message = f'Ваш код подтверждения: {user[0].confirmation_code}'
+        message = f'Ваш код подтверждения: {user.confirmation_code}'
         from_email = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [user[0].email]
+        recipient_list = (user.email,)
         send_mail(subject, message, from_email, recipient_list)
-        return user[0]
+        return user
 
     def validate_username(self, value):
-        if value == 'me':
+        if value == FORBIDDEN_NAME:
             raise serializers.ValidationError(
                 'Недопустимое имя'
             )
@@ -37,8 +35,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class AdminRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email', 'role',
-                  'bio', 'first_name', 'last_name']
+        fields = ('username', 'email', 'role',
+                  'bio', 'first_name', 'last_name')
 
 
 class TokenObtainSerializer(serializers.Serializer):
@@ -49,32 +47,34 @@ class TokenObtainSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email',
-                  'first_name', 'last_name', 'bio', 'role']
-        read_only_fields = ['id', 'role']
+        fields = ('id', 'username', 'email',
+                  'first_name', 'last_name', 'bio', 'role')
+        read_only_fields = ('role',)
 
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['name', 'slug']
+        fields = ('name', 'slug')
 
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
-        fields = ['name', 'slug']
+        fields = ('name', 'slug')
 
 
 class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     genre = GenreSerializer(many=True, read_only=True)
-    rating = serializers.FloatField(read_only=True)
+    rating = serializers.IntegerField(
+        read_only=True, default=None
+    )
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description',
-                  'category', 'genre', 'rating']
+        fields = ('id', 'name', 'year', 'description',
+                  'category', 'genre', 'rating')
 
 
 class TitleCreateUpdateSerializer(serializers.ModelSerializer):
@@ -88,14 +88,14 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
         queryset=Genre.objects.all(),
         many=True,
         required=True,
-        allow_empty=False
+        allow_empty=False,
+        allow_null=True
     )
-    rating = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Title
-        fields = ['id', 'name', 'year', 'description',
-                  'category', 'genre', 'rating']
+        fields = ('id', 'name', 'year', 'description',
+                  'category', 'genre')
 
     def validate_year(self, value):
         current_year = timezone.now().year
@@ -104,6 +104,9 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
                 'Год выпуска не может быть больше текущего года.'
             )
         return value
+
+    def to_representation(self, instance):
+        return TitleSerializer(instance).data
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -114,7 +117,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['id', 'text', 'author', 'score', 'pub_date']
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
 
     def validate_score(self, value):
         if not (MIN_SCORE <= value <= MAX_SCORE):
@@ -144,4 +147,4 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'author', 'pub_date']
+        fields = ('id', 'text', 'author', 'pub_date')
