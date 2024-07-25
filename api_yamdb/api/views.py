@@ -226,19 +226,18 @@ class CommentViewSet(viewsets.ModelViewSet):
     http_method_names = ('get', 'post', 'delete', 'patch')
     permission_classes = (IsAuthenticatedOrReadOnly, IsAuthor)
 
-    def get_queryset(self):
+    def get_review(self):
         return get_object_or_404(
             Review,
             id=self.kwargs.get('review_id'),
             title_id=self.kwargs.get('title_id')
-        ).comments.all()
+        )
+
+    def get_queryset(self):
+        return self.get_review().comments.all()
 
     def perform_create(self, serializer):
         serializer.save(
             author=self.request.user,
-            review=get_object_or_404(
-                Review,
-                id=self.kwargs.get('review_id'),
-                title_id=self.kwargs.get('title_id')
-            )
+            review=self.get_review()
         )
