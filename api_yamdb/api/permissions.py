@@ -1,8 +1,6 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
-USER = 'user'
-ADMIN = 'admin'
-MODERATOR = 'moderator'
+from .constants import ADMIN, MODERATOR
 
 
 class IsAuthor(BasePermission):
