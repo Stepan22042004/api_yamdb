@@ -3,7 +3,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import serializers
 
-from .constants import FORBIDDEN_NAME, MAX_SCORE, MIN_SCORE
+from api.constants import FORBIDDEN_NAME, MAX_SCORE, MIN_SCORE
 from reviews.models import Category, Comment, Genre, Review, Title, User
 
 
@@ -35,6 +35,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class AdminRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
+        lookup_field = 'username'
         fields = ('username', 'email', 'role',
                   'bio', 'first_name', 'last_name')
 
@@ -55,12 +56,14 @@ class UserSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
+        lookup_field = 'slug'
         fields = ('name', 'slug')
 
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
+        lookup_field = 'slug'
         fields = ('name', 'slug')
 
 
