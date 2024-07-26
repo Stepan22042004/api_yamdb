@@ -9,11 +9,6 @@ from reviews.models import Category, Comment, Genre, Review, Title, User
 
 STATIC_DATA_PATH = 'static/data/'
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(name)s - %(message)s'
-)
-
 
 class Command(BaseCommand):
     help = 'Import data from CSV files'
@@ -48,12 +43,22 @@ class Command(BaseCommand):
                         }
                     )
                     if created:
-                        logger.info(f'Создан {user.username}')
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f'Создан пользователь {user.username}'
+                            )
+                        )
                     else:
-                        logger.warning(f'{user.username} уже существует')
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'Пользователь {user.username} уже существует'
+                            )
+                        )
                 except Exception as e:
-                    logger.error(
-                        f'Ошибка создания пользователя с id {row[0]}: {e}'
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'Ошибка создания пользователя с id {row[0]}: {e}'
+                        )
                     )
 
     def import_categories(self):
@@ -128,14 +133,20 @@ class Command(BaseCommand):
                 try:
                     title = Title.objects.get(id=row[1])
                 except ObjectDoesNotExist:
-                    logger.warning(f'Произведение с id {row[1]} не найдено.')
-                    continue  # Пропускаем строки с отсутствующим заголовком
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f'Произведение с id {row[1]} не найдено.'
+                        )
+                    )
+                    continue
 
                 try:
                     author = User.objects.get(id=row[3])
                 except User.DoesNotExist:
-                    logger.warning(f'Автор с id {row[3]} не найден.')
-                    continue  # Пропускаем строки с отсутствующим автором
+                    self.stdout.write(
+                        self.style.WARNING(f'Автор с id {row[3]} не найден.')
+                    )
+                    continue
 
                 Review.objects.get_or_create(
                     id=row[0],
@@ -168,6 +179,8 @@ class Command(BaseCommand):
                         pub_date=parse_datetime(row[4])
                     )
                 except ObjectDoesNotExist as e:
-                    logger.warning(
-                        f'Ошибка: {e}. Коммент с id {row[0]} не создан.'
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f'Ошибка: {e}. Коммент с id {row[0]} не создан.'
+                        )
                     )
