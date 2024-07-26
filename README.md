@@ -60,6 +60,10 @@ python3 manage.py runserver
 ### Примеры запросов и ответов
 Регистрация нового пользователя
 ```
+http://127.0.0.1:8000/api/v1/auth/signup/
+```
+Запрос
+```
 {
   "email": "user@example.com",
   "username": "^w\\Z"
@@ -71,11 +75,45 @@ python3 manage.py runserver
   "email": "string",
   "username": "string"
 }
+
+Получение JWT токена
+```
+http://127.0.0.1:8000/api/v1/auth/token/
+```
+Запрос
+```
+{
+  "username": "^w\\Z",
+  "confirmation_code": "string"
+}
+```
+Ответ:
+```
+{
+  "token": "string"
+}
 ```
 Получение комментариев
 ```
 http://127.0.0.1:8000/api/v1/titles/Title1/reviews/Review2/comments/
 ```
+Ответ:
+```
+{
+  "count": 0,
+  "next": "string",
+  "previous": "string",
+  "results": [
+    {
+      "id": 0,
+      "text": "string",
+      "author": "string",
+      "pub_date": "2019-08-24T14:15:22Z"
+    }
+  ]
+}
+```
+
 ### Информация об авторах
 Герасимов Степан
 Чугунова Анастасия
