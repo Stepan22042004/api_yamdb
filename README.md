@@ -58,20 +58,20 @@ python3 manage.py runserver
 ./set_up_data.sh
 ```
 ### Примеры запросов и ответов
-Добавление произведения
+Регистрация нового пользователя
 ```
 {
-    "name": "Admin Title",
-    "year": 2020,
-    "description": "Test title by admin",
-    "genre": [
-        "Genre2",
-        "Genre1"
-    ],
-    "category": "Category1"
+  "email": "user@example.com",
+  "username": "^w\\Z"
 }
 ```
-
+Ответ:
+```
+{
+  "email": "string",
+  "username": "string"
+}
+```
 Получение комментариев
 ```
 http://127.0.0.1:8000/api/v1/titles/Title1/reviews/Review2/comments/
