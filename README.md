@@ -52,26 +52,82 @@ python3 manage.py migrate
 ```
 python3 manage.py runserver
 ```
-
+скрипт наполнения БД:
+Наполняет БД тремя базовыми пользователями(Админ, модератор, superuser)
+```
+./set_up_data.sh
+```
 ### Примеры запросов и ответов
-Добавление произведения
+Регистрация нового пользователя
+```
+http://127.0.0.1:8000/api/v1/auth/signup/
+```
+Запрос
 ```
 {
-    "name": "Admin Title",
-    "year": 2020,
-    "description": "Test title by admin",
-    "genre": [
-        "Genre2",
-        "Genre1"
-    ],
-    "category": "Category1"
+  "email": "user@example.com",
+  "username": "^w\\Z"
 }
 ```
-
+Ответ:
+```
+{
+  "email": "string",
+  "username": "string"
+}
+```
+Получение JWT токена
+```
+http://127.0.0.1:8000/api/v1/auth/token/
+```
+Запрос
+```
+{
+  "username": "^w\\Z",
+  "confirmation_code": "string"
+}
+```
+Ответ:
+```
+{
+  "token": "string"
+}
+```
 Получение комментариев
 ```
 http://127.0.0.1:8000/api/v1/titles/Title1/reviews/Review2/comments/
 ```
+Ответ:
+```
+{
+  "count": 0,
+  "next": "string",
+  "previous": "string",
+  "results": [
+    {
+      "id": 0,
+      "text": "string",
+      "author": "string",
+      "pub_date": "2019-08-24T14:15:22Z"
+    }
+  ]
+}
+```
+### Стек использованных технологий
+### Язык программирования и фреймворк:
+  Python: основной язык программирования.
+  Django: основной веб-фреймворк.
+  Django REST Framework (DRF): расширение Django для создания RESTful веб-сервисов.
+### База данных:
+  SQLite: проще в настройке, хороша для начального этапа разработки и тестирования.
+### Аутентификация и авторизация:
+  Django Rest Framework Simple JWT: библиотека для работы с JWT в DRF.
+### Документация API:
+  ReDoc: генератор статической документации.
+### Тестирование:
+  Pytest: для написания тестов.
+  pytest-django: для расширения Pytest функционалом для Django.
+
 ### Информация об авторах
 Герасимов Степан
 Чугунова Анастасия
