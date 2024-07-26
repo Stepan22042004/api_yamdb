@@ -75,7 +75,7 @@ http://127.0.0.1:8000/api/v1/auth/signup/
   "email": "string",
   "username": "string"
 }
-
+```
 Получение JWT токена
 ```
 http://127.0.0.1:8000/api/v1/auth/token/
