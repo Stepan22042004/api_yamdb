@@ -52,7 +52,7 @@ python3 manage.py migrate
 ```
 python3 manage.py runserver
 ```
-### собственная management-команда, добавляюща данные в БД через Django ORM
+### Собственная management-команда, добавляюща данные в БД через Django ORM
 ```
 python manage.py import_csv
 ```
