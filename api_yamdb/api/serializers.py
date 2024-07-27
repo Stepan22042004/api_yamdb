@@ -3,11 +3,11 @@ from django.core.mail import send_mail
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from rest_framework import serializers
-from reviews.validators import validate_username
 
 from api.constants import FORBIDDEN_NAME, MAX_SCORE, MIN_SCORE
 from reviews.constants import EMAIL_MAX_LEN, USERNAME_MAX_LEN
 from reviews.models import Category, Comment, Genre, Review, Title, User
+from reviews.validators import validate_username
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -31,7 +31,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         username = data.get('username')
         email = data.get('email')
         user_email = User.objects.filter(
-            username=username, email=email).first()
+            username=username, email=email).exists()
         if user_email:
             return data
         if User.objects.filter(username=username).exists():
@@ -124,7 +124,7 @@ class TitleCreateUpdateSerializer(serializers.ModelSerializer):
         many=True,
         required=True,
         allow_empty=False,
-        allow_null=True
+        allow_null=False
     )
 
     class Meta:

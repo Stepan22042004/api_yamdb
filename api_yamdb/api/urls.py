@@ -26,8 +26,12 @@ api_v1_auth_urls = [
     path('token/', TokenObtainView.as_view(), name='token_obtain')
 ]
 
+api_v1_urlpatterns = [
+    path('users/me/', UserProfileView.as_view(), name='user-profile'),
+    path('auth/', include(api_v1_auth_urls)),
+    path('', include(router_v1.urls)),
+]
+
 urlpatterns = [
-    path('v1/users/me/', UserProfileView.as_view(), name='user-profile'),
-    path('v1/auth/', include(api_v1_auth_urls)),
-    path('v1/', include(router_v1.urls))
+    path('v1/', include(api_v1_urlpatterns)),
 ]

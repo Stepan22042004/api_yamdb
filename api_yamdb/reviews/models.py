@@ -58,18 +58,18 @@ class User(AbstractUser):
     )
     objects = UserManager()
 
+    class Meta:
+        verbose_name = 'пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('username',)
+
     def __str__(self):
         return self.username
 
     def save(self, *args, **kwargs):
         if not self.confirmation_code:
             self.confirmation_code = generate_confirmation_code()
-        super(User, self).save(*args, **kwargs)
-
-    class Meta:
-        verbose_name = 'пользователь'
-        verbose_name_plural = 'Пользователи'
-        ordering = ('username',)
+        super().save()
 
 
 class AbstractNameSlug(models.Model):
@@ -111,7 +111,7 @@ class Title(models.Model):
     name = models.CharField(
         max_length=TITLE_NAME_MAX_LEN, verbose_name='Название'
     )
-    year = models.PositiveSmallIntegerField(
+    year = models.SmallIntegerField(
         validators=[validate_year], verbose_name='Год'
     )
     description = models.TextField(blank=True, verbose_name='Описание')
@@ -123,20 +123,14 @@ class Title(models.Model):
     )
     genre = models.ManyToManyField(Genre, blank=False, verbose_name='Жанр')
 
-    def calculate_rating(self):
-        reviews = self.reviews.all()
-        if reviews.exists():
-            return reviews.aggregate(models.Avg('score'))['score__avg']
-        return None
-
-    def __str__(self):
-        return self.name
-
     class Meta:
         verbose_name = 'произведение'
         verbose_name_plural = 'Произведения'
         default_related_name = 'titles'
         ordering = ('name',)
+
+    def __str__(self):
+        return self.name
 
 
 class AbstractReviewComment(models.Model):
