@@ -1,5 +1,4 @@
 from django.db.models import Avg
-from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, mixins, permissions, status, viewsets
@@ -18,7 +17,6 @@ from api.serializers import (AdminRegisterSerializer, CategorySerializer,
                              ReviewSerializer, TitleCreateUpdateSerializer,
                              TitleSerializer, TokenObtainSerializer,
                              UserRegisterSerializer, UserSerializer)
-from api_yamdb.settings import DEFAULT_FROM_EMAIL
 from reviews.models import Category, Genre, Review, Title, User
 
 
@@ -33,20 +31,6 @@ class UserRegisterView(APIView):
         Обрабатывает POST-запрос для регистрации пользователя.
         Если пользователь уже существует, отправляет новый код подтверждения.
         """
-        user = User.objects.filter(
-            username=request.data.get('username')).first()
-        if user:
-            if user.email != request.data.get('email'):
-                return Response(status=status.HTTP_400_BAD_REQUEST)
-            user.save()
-            subject = 'Ваш код подтверждения'
-            message = f'Ваш код подтверждения: {user.confirmation_code}'
-            from_email = DEFAULT_FROM_EMAIL
-            recipient_list = [user.email]
-            send_mail(subject, message, from_email, recipient_list)
-            return Response({
-                'message': 'User already exists. New confirmation code sent.'
-            }, status=status.HTTP_200_OK)
         serializer = UserRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
