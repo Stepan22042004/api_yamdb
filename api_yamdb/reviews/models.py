@@ -160,7 +160,7 @@ class AbstractReviewComment(models.Model):
     def __str__(self):
         return self.text[:TEXT_PREVIEW_LEN]
 
-
+      
 class Review(AbstractReviewComment):
     """
     Модель отзыва, связанная с произведением и пользователем (автором),
