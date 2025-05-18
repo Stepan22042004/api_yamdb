@@ -74,6 +74,7 @@ class User(AbstractUser):
 
 class AbstractNameSlug(models.Model):
     """Абстрактная модель для с полями 'name' и 'slug'."""
+
     name = models.CharField(
         max_length=CATEGORY_NAME_MAX_LEN, verbose_name='Название'
     )
